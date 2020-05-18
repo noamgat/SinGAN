@@ -16,6 +16,8 @@ from sklearn.cluster import KMeans
 
 
 # custom weights initialization called on netG and netD
+from vglc.vglc_reader import VGLCGameData, VGLCLevelRepresentationType
+
 
 def read_image(opt):
     x = img.imread('%s%s' % (opt.input_img,opt.ref_image))
@@ -146,7 +148,22 @@ def calc_gradient_penalty(netD, real_data, fake_data, LAMBDA, device):
     gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
     return gradient_penalty
 
+
+def is_vglc(opt):
+    return 'vglc_json' in opt and opt.vglc_json
+
 def read_image(opt):
+    if is_vglc(opt):
+        json_path = opt.vglc_json
+        levels_dir = opt.input_dir
+        vglc_reader = VGLCGameData(json_path, levels_dir)
+        level = vglc_reader.get_level(0, VGLCLevelRepresentationType.ONE_HOT_COMMON)
+        opt.nc_im = level.shape[2]
+        opt.nc_z = opt.nc_im
+        level = np.moveaxis(level, [0, 1, 2], [1, 2, 0])  # H,W,C -> C,H,W
+        level = np.expand_dims(level, 0) # C,H,W -> N,C,H,W
+        x = np2torch(level, opt)
+        return x
     x = img.imread('%s/%s' % (opt.input_dir,opt.input_name))
     x = np2torch(x,opt)
     x = x[:,0:3,:,:]
@@ -159,7 +176,9 @@ def read_image_dir(dir,opt):
     return x
 
 def np2torch(x,opt):
-    if opt.nc_im == 3:
+    if is_vglc(opt):
+        pass
+    elif opt.nc_im == 3:
         x = x[:,:,:,None]
         x = x.transpose((3, 2, 0, 1))/255
     else:
@@ -171,13 +190,16 @@ def np2torch(x,opt):
         x = move_to_gpu(x)
     x = x.type(torch.cuda.FloatTensor) if not(opt.not_cuda) else x.type(torch.FloatTensor)
     #x = x.type(torch.FloatTensor)
-    x = norm(x)
+    if not is_vglc(opt):
+        x = norm(x)
     return x
 
-def torch2uint8(x):
+def torch2uint8(x, opt):
     x = x[0,:,:,:]
     x = x.permute((1,2,0))
-    x = 255*denorm(x)
+    if is_vglc(opt):
+        x = denorm(x)
+    x = 255*x
     x = x.cpu().numpy()
     x = x.astype(np.uint8)
     return x
@@ -219,7 +241,7 @@ def adjust_scales2image_SR(real_,opt):
     return real
 
 def creat_reals_pyramid(real,reals,opt):
-    real = real[:,0:3,:,:]
+    real = real[:,0:opt.nc_im,:,:]
     for i in range(0,opt.stop_scale+1,1):
         scale = math.pow(opt.scale_factor,opt.stop_scale-i)
         curr_real = imresize(real,scale,opt)
@@ -340,7 +362,7 @@ def dilate_mask(mask,opt):
         element = morphology.disk(radius=7)
     if opt.mode == "editing":
         element = morphology.disk(radius=20)
-    mask = torch2uint8(mask)
+    mask = torch2uint8(mask, opt)
     mask = mask[:,:,0]
     mask = morphology.binary_dilation(mask,selem=element)
     mask = filters.gaussian(mask, sigma=5)

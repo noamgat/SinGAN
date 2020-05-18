@@ -22,7 +22,11 @@ def move_to_gpu(t):
     return t
 
 def np2torch(x,opt):
-    if opt.nc_im == 3:
+    from SinGAN.functions import is_vglc
+    if is_vglc(opt):
+        x = x[:, :, :, None]
+        x = x.transpose((3, 2, 0, 1))
+    elif opt.nc_im == 3:
         x = x[:,:,:,None]
         x = x.transpose((3, 2, 0, 1))/255
     else:
@@ -34,13 +38,18 @@ def np2torch(x,opt):
         x = move_to_gpu(x)
     x = x.type(torch.cuda.FloatTensor) if not(opt.not_cuda) else x.type(torch.FloatTensor)
     #x = x.type(torch.cuda.FloatTensor)
-    x = norm(x)
+
+    if not is_vglc(opt):
+        x = norm(x)
     return x
 
-def torch2uint8(x):
+def torch2uint8(x, opt):
     x = x[0,:,:,:]
     x = x.permute((1,2,0))
-    x = 255*denorm(x)
+    from SinGAN.functions import is_vglc
+    if not is_vglc(opt):
+        x = denorm(x)
+        x = 255*x
     x = x.cpu().numpy()
     x = x.astype(np.uint8)
     return x
@@ -48,15 +57,19 @@ def torch2uint8(x):
 
 def imresize(im,scale,opt):
     #s = im.shape
-    im = torch2uint8(im)
-    im = imresize_in(im, scale_factor=scale)
+    im = torch2uint8(im, opt)
+    kernel = None
+    from SinGAN.functions import is_vglc
+    if is_vglc(opt):
+        kernel = 'box'
+    im = imresize_in(im, scale_factor=scale, kernel=kernel)
     im = np2torch(im,opt)
     #im = im[:, :, 0:int(scale * s[2]), 0:int(scale * s[3])]
     return im
 
 def imresize_to_shape(im,output_shape,opt):
     #s = im.shape
-    im = torch2uint8(im)
+    im = torch2uint8(im, opt)
     im = imresize_in(im, output_shape=output_shape)
     im = np2torch(im,opt)
     #im = im[:, :, 0:int(scale * s[2]), 0:int(scale * s[3])]

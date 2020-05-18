@@ -9,6 +9,10 @@ if __name__ == '__main__':
     parser.add_argument('--input_dir', help='input image dir', default='Input/Images')
     parser.add_argument('--input_name', help='input image name', required=True)
     parser.add_argument('--mode', help='task to be done', default='train')
+
+    #  NOAM VGLC
+    parser.add_argument('--vglc_json', help='(VGLC) Enable and set game data JSON', default=None)
+
     opt = parser.parse_args()
     opt = functions.post_config(opt)
     Gs = []
