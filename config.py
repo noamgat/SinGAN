@@ -5,6 +5,7 @@ def get_arguments():
     parser = argparse.ArgumentParser()
     #parser.add_argument('--mode', help='task to be done', default='train')
     #workspace:
+    parser.add_argument('--gpu_id', default=0, type=int, help='gpu id, if the value is -1, the cpu is used')
     parser.add_argument('--not_cuda', action='store_true', help='disables cuda', default=0)
     
     #load, input, save configurations:

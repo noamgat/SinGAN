@@ -303,7 +303,9 @@ def generate_dir2save(opt):
 
 def post_config(opt):
     # init fixed parameters
-    opt.device = torch.device("cpu" if opt.not_cuda else "cuda:0")
+    torch.cuda.set_device(opt.gpu_id)
+
+    opt.device = torch.device("cpu" if opt.not_cuda else ("cuda:%s" % opt.gpu_id))
     opt.niter_init = opt.niter
     opt.noise_amp_init = opt.noise_amp
     opt.nfc_init = opt.nfc

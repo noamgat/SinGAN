@@ -1,5 +1,5 @@
 # This code was taken from: https://github.com/assafshocher/resizer by Assaf Shocher
-
+import cv2
 import numpy as np
 from scipy.ndimage import filters, measurements, interpolation
 from skimage import color
@@ -61,7 +61,7 @@ def imresize(im,scale,opt):
     kernel = None
     from SinGAN.functions import is_vglc
     if is_vglc(opt):
-        kernel = 'box'
+        kernel = 'area'
     im = imresize_in(im, scale_factor=scale, kernel=kernel)
     im = np2torch(im,opt)
     #im = im[:, :, 0:int(scale * s[2]), 0:int(scale * s[3])]
@@ -83,6 +83,20 @@ def imresize_in(im, scale_factor=None, output_shape=None, kernel=None, antialias
     # For a given numeric kernel case, just do convolution and sub-sampling (downscaling only)
     if type(kernel) == np.ndarray and scale_factor[0] <= 1:
         return numeric_kernel(im, kernel, scale_factor, output_shape, kernel_shift_flag)
+
+    if kernel == 'area':
+        assert len(output_shape) == 3
+        channel_dim = 2
+        resized_2d_slices = []
+        slice_2d_shape = (output_shape[1], output_shape[0])
+        for channel_num in range(output_shape[channel_dim]):
+            slice_2d = im[:, :, channel_num]
+            resized_2d_slice = cv2.resize(slice_2d, slice_2d_shape, interpolation=cv2.INTER_AREA)
+            resized_2d_slices.append(resized_2d_slice)
+        output_image = np.array(resized_2d_slices)
+        output_image = np.moveaxis(output_image, [0, 1, 2], [2, 0, 1])
+        assert (output_image.shape == output_shape).all()
+        return output_image
 
     # Choose interpolation method, each method has the matching kernel size
     method, kernel_width = {
@@ -298,3 +312,6 @@ def lanczos3(x):
 
 def linear(x):
     return (x + 1) * ((-1 <= x) & (x < 0)) + (1 - x) * ((0 <= x) & (x <= 1))
+
+t = np.zeros((29, 40, 4))
+a = imresize_in(t, output_shape=(50, 50, 4), kernel='cubic')
