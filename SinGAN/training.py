@@ -7,6 +7,7 @@ import torch.utils.data
 import math
 import matplotlib.pyplot as plt
 from SinGAN.imresize import imresize
+from skimage import io as img
 
 def train(opt,Gs,Zs,reals,NoiseAmp):
     real_ = functions.read_image(opt)
@@ -14,6 +15,16 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
     scale_num = 0
     real = imresize(real_,opt.scale1,opt)
     reals = functions.creat_reals_pyramid(real,reals,opt)
+
+    if functions.is_vglc(opt) or True:
+        dir2save = functions.generate_dir2save(opt)
+        for i, real_im in enumerate(reals):
+            im = functions.torch2uint8(real_im, opt)
+            if functions.is_vglc(opt):
+                from vglc.vglc_utils import save_sc2_image
+                save_sc2_image(im, f'{dir2save}/input_{i}.png')
+            else:
+                img.imsave(f'{dir2save}/input_{i}.png', im)
     nfc_prev = 0
 
     while scale_num<opt.stop_scale+1:
@@ -29,7 +40,7 @@ def train(opt,Gs,Zs,reals,NoiseAmp):
 
         #plt.imsave('%s/in.png' %  (opt.out_), functions.convert_image_np(real), vmin=0, vmax=1)
         #plt.imsave('%s/original.png' %  (opt.out_), functions.convert_image_np(real_), vmin=0, vmax=1)
-        plt.imsave('%s/real_scale.png' %  (opt.outf), functions.convert_image_np(reals[scale_num]), vmin=0, vmax=1)
+        plt.imsave('%s/real_scale.png' %  (opt.outf), functions.convert_image_np(reals[scale_num], opt), vmin=0, vmax=1)
 
         D_curr,G_curr = init_models(opt)
         if (nfc_prev==opt.nfc):
@@ -145,7 +156,7 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
 
             if opt.mode == 'paint_train':
                 prev = functions.quant2centers(prev,centers)
-                plt.imsave('%s/prev.png' % (opt.outf), functions.convert_image_np(prev), vmin=0, vmax=1)
+                plt.imsave('%s/prev.png' % (opt.outf), functions.convert_image_np(prev, opt), vmin=0, vmax=1)
 
             if (Gs == []) & (opt.mode != 'SR_train'):
                 noise = noise_
@@ -180,7 +191,7 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
                 loss = nn.MSELoss()
                 if opt.mode == 'paint_train':
                     z_prev = functions.quant2centers(z_prev, centers)
-                    plt.imsave('%s/z_prev.png' % (opt.outf), functions.convert_image_np(z_prev), vmin=0, vmax=1)
+                    plt.imsave('%s/z_prev.png' % (opt.outf), functions.convert_image_np(z_prev, opt), vmin=0, vmax=1)
                 Z_opt = opt.noise_amp*z_opt+z_prev
                 rec_loss = alpha*loss(netG(Z_opt.detach(),z_prev),real)
                 rec_loss.backward(retain_graph=True)
@@ -200,8 +211,8 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
             print('scale %d/%d:[%d/%d]' % (len(Gs), opt.stop_scale+1, epoch, opt.niter))
 
         if epoch % 500 == 0 or epoch == (opt.niter-1):
-            plt.imsave('%s/fake_sample.png' %  (opt.outf), functions.convert_image_np(fake.detach()), vmin=0, vmax=1)
-            plt.imsave('%s/G(z_opt).png'    % (opt.outf),  functions.convert_image_np(netG(Z_opt.detach(), z_prev).detach()), vmin=0, vmax=1)
+            plt.imsave('%s/fake_sample.png' %  (opt.outf), functions.convert_image_np(fake.detach(), opt), vmin=0, vmax=1)
+            plt.imsave('%s/G(z_opt).png'    % (opt.outf),  functions.convert_image_np(netG(Z_opt.detach(), z_prev).detach(), opt), vmin=0, vmax=1)
             #plt.imsave('%s/D_fake.png'   % (opt.outf), functions.convert_image_np(D_fake_map))
             #plt.imsave('%s/D_real.png'   % (opt.outf), functions.convert_image_np(D_real_map))
             #plt.imsave('%s/z_opt.png'    % (opt.outf), functions.convert_image_np(z_opt.detach()), vmin=0, vmax=1)
@@ -277,7 +288,7 @@ def train_paint(opt,Gs,Zs,reals,NoiseAmp,centers,paint_inject_scale):
 
             #plt.imsave('%s/in.png' %  (opt.out_), functions.convert_image_np(real), vmin=0, vmax=1)
             #plt.imsave('%s/original.png' %  (opt.out_), functions.convert_image_np(real_), vmin=0, vmax=1)
-            plt.imsave('%s/in_scale.png' %  (opt.outf), functions.convert_image_np(reals[scale_num]), vmin=0, vmax=1)
+            plt.imsave('%s/in_scale.png' %  (opt.outf), functions.convert_image_np(reals[scale_num], opt), vmin=0, vmax=1)
 
             D_curr,G_curr = init_models(opt)
 

@@ -20,8 +20,8 @@ from vglc.vglc_reader import VGLCGameData, VGLCLevelRepresentationType
 
 
 def read_image(opt):
-    x = img.imread('%s%s' % (opt.input_img,opt.ref_image))
-    return np2torch(x)
+    x = img.imread('%s%s' % (opt.input_img, opt.ref_image))
+    return np2torch(x, opt)
 
 def denorm(x):
     out = (x + 1) / 2
@@ -40,8 +40,13 @@ def norm(x):
 #    out = (I1-I2.mean())*2
 #    return out#.clamp(I2.min(), I2.max())
 
-def convert_image_np(inp):
-    if inp.shape[1]==3:
+def convert_image_np(inp, opt):
+    if is_vglc(opt):
+        inp = move_to_cpu(inp[-1,:,:,:])
+        inp = inp.numpy().transpose((1,2,0))
+        from vglc.vglc_utils import convert_sc2_image_to_image
+        inp = convert_sc2_image_to_image(inp)
+    elif inp.shape[1]==3:
         inp = denorm(inp)
         inp = move_to_cpu(inp[-1,:,:,:])
         inp = inp.numpy().transpose((1,2,0))
@@ -61,7 +66,7 @@ def save_image(real_cpu,receptive_feild,ncs,epoch_num,file_name):
         ax.imshow(real_cpu.view(real_cpu.size(2),real_cpu.size(3)),cmap='gray')
     else:
         #ax.imshow(convert_image_np(real_cpu[0,:,:,:].cpu()))
-        ax.imshow(convert_image_np(real_cpu.cpu()))
+        ax.imshow(convert_image_np(real_cpu.cpu(), opt))
     rect = patches.Rectangle((0,0),receptive_feild,receptive_feild,linewidth=5,edgecolor='r',facecolor='none')
     ax.add_patch(rect)
     ax.axis('off')
@@ -160,8 +165,8 @@ def read_image(opt):
         level = vglc_reader.get_level(0, VGLCLevelRepresentationType.ONE_HOT_COMMON)
         opt.nc_im = level.shape[2]
         opt.nc_z = opt.nc_im
-        level = np.moveaxis(level, [0, 1, 2], [1, 2, 0])  # H,W,C -> C,H,W
-        level = np.expand_dims(level, 0) # C,H,W -> N,C,H,W
+        #level = np.moveaxis(level, [0, 1, 2], [1, 2, 0])  # H,W,C -> C,H,W
+        #level = np.expand_dims(level, 0) # C,H,W -> N,C,H,W
         x = np2torch(level, opt)
         return x
     x = img.imread('%s/%s' % (opt.input_dir,opt.input_name))
@@ -176,8 +181,10 @@ def read_image_dir(dir,opt):
     return x
 
 def np2torch(x,opt):
+    from SinGAN.functions import is_vglc
     if is_vglc(opt):
-        pass
+        x = x[:, :, :, None]
+        x = x.transpose((3, 2, 0, 1))
     elif opt.nc_im == 3:
         x = x[:,:,:,None]
         x = x.transpose((3, 2, 0, 1))/255
@@ -186,22 +193,26 @@ def np2torch(x,opt):
         x = x[:,:,None,None]
         x = x.transpose(3, 2, 0, 1)
     x = torch.from_numpy(x)
-    if not(opt.not_cuda):
+    if not (opt.not_cuda):
         x = move_to_gpu(x)
     x = x.type(torch.cuda.FloatTensor) if not(opt.not_cuda) else x.type(torch.FloatTensor)
-    #x = x.type(torch.FloatTensor)
+    #x = x.type(torch.cuda.FloatTensor)
+
     if not is_vglc(opt):
         x = norm(x)
     return x
 
+# Duplicate with imresize.py. Why?
 def torch2uint8(x, opt):
     x = x[0,:,:,:]
     x = x.permute((1,2,0))
-    if is_vglc(opt):
+    from SinGAN.functions import is_vglc
+    if not is_vglc(opt):
         x = denorm(x)
-    x = 255*x
+        x = 255*x
     x = x.cpu().numpy()
-    x = x.astype(np.uint8)
+    if not is_vglc(opt):
+        x = x.astype(np.uint8)
     return x
 
 def read_image2np(opt):
@@ -373,7 +384,7 @@ def dilate_mask(mask,opt):
     mask = np2torch(mask,opt)
     opt.nc_im = nc_im
     mask = mask.expand(1, 3, mask.shape[2], mask.shape[3])
-    plt.imsave('%s/%s_mask_dilated.png' % (opt.ref_dir, opt.ref_name[:-4]), convert_image_np(mask), vmin=0,vmax=1)
+    plt.imsave('%s/%s_mask_dilated.png' % (opt.ref_dir, opt.ref_name[:-4]), convert_image_np(mask, opt), vmin=0,vmax=1)
     mask = (mask-mask.min())/(mask.max()-mask.min())
     return mask
 

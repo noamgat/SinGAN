@@ -2,7 +2,9 @@ from config import get_arguments
 from SinGAN.manipulate import *
 from SinGAN.training import *
 import SinGAN.functions as functions
-
+from SinGAN.imresize import torch2uint8
+from vglc.vglc_utils import save_sc2_image
+from skimage import io as img
 
 if __name__ == '__main__':
     parser = get_arguments()
@@ -29,6 +31,12 @@ if __name__ == '__main__':
         except OSError:
             pass
         real = functions.read_image(opt)
+        if opt.vglc_json or True:
+            im = torch2uint8(real, opt)
+            if opt.vglc_json:
+                save_sc2_image(im, dir2save + "/input.png")
+            else:
+                img.imsave(dir2save + "/input.png", im)
         functions.adjust_scales2image(real, opt)
         train(opt, Gs, Zs, reals, NoiseAmp)
         SinGAN_generate(Gs,Zs,reals,NoiseAmp,opt)

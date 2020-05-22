@@ -43,6 +43,7 @@ def np2torch(x,opt):
         x = norm(x)
     return x
 
+# Duplicate with functions.py. Why?
 def torch2uint8(x, opt):
     x = x[0,:,:,:]
     x = x.permute((1,2,0))
@@ -51,17 +52,19 @@ def torch2uint8(x, opt):
         x = denorm(x)
         x = 255*x
     x = x.cpu().numpy()
-    x = x.astype(np.uint8)
+    if not is_vglc(opt):
+        x = x.astype(np.uint8)
     return x
 
 
 def imresize(im,scale,opt):
     #s = im.shape
-    im = torch2uint8(im, opt)
     kernel = None
     from SinGAN.functions import is_vglc
     if is_vglc(opt):
         kernel = 'area'
+
+    im = torch2uint8(im, opt)
     im = imresize_in(im, scale_factor=scale, kernel=kernel)
     im = np2torch(im,opt)
     #im = im[:, :, 0:int(scale * s[2]), 0:int(scale * s[3])]
