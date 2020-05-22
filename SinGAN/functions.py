@@ -44,8 +44,8 @@ def convert_image_np(inp, opt):
     if is_vglc(opt):
         inp = move_to_cpu(inp[-1,:,:,:])
         inp = inp.numpy().transpose((1,2,0))
-        from vglc.vglc_utils import convert_sc2_image_to_image
-        inp = convert_sc2_image_to_image(inp)
+        from vglc.vglc_utils import stack_color_channels
+        inp = stack_color_channels(inp)
     elif inp.shape[1]==3:
         inp = denorm(inp)
         inp = move_to_cpu(inp[-1,:,:,:])
