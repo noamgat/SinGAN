@@ -159,6 +159,7 @@ def is_vglc(opt):
 
 def read_image(opt):
     if is_vglc(opt):
+        return read_image_dir(opt.input_dir, opt)
         json_path = opt.vglc_json
         levels_dir = opt.input_dir
         vglc_reader = VGLCGameData(json_path, levels_dir)
@@ -174,7 +175,38 @@ def read_image(opt):
     x = x[:,0:3,:,:]
     return x
 
+
+def pad_images_around_center(ims):
+    # Assume input is list of N=1,C,H,W
+    max_h = max(im.shape[2] for im in ims)
+    max_w = max(im.shape[3] for im in ims)
+    target_tensor = torch.zeros((len(ims), ims[0].shape[1], max_h, max_w), device=ims[0].device, dtype=ims[0].dtype)
+    for index, im in enumerate(ims):
+        im_h = im.shape[2]
+        im_w = im.shape[3]
+        offset_y = int((max_h - im_h) / 2)
+        offset_x = int((max_w - im_w) / 2)
+        for channel_num in range(im.shape[1]):
+            # Assume outer border of input image is all same value. TODO : Remove assumption?
+            target_tensor[index, channel_num, :, :] = im[0, channel_num, 0, 0]
+        target_tensor[index, :, offset_y:offset_y+im_h, offset_x:offset_x+im_w] = im[0, :, :, :]
+    return target_tensor
+
 def read_image_dir(dir,opt):
+    if is_vglc(opt):
+        json_path = opt.vglc_json
+        levels_dir = opt.input_dir
+        vglc_reader = VGLCGameData(json_path, levels_dir)
+        levels = []
+        for level_idx in range(len(vglc_reader)):
+            level = vglc_reader.get_level(level_idx, VGLCLevelRepresentationType.ONE_HOT_COMMON)
+            opt.nc_im = level.shape[2]
+            opt.nc_z = opt.nc_im
+            #level = np.moveaxis(level, [0, 1, 2], [1, 2, 0])  # H,W,C -> C,H,W
+            #level = np.expand_dims(level, 0) # C,H,W -> N,C,H,W
+            x = np2torch(level, opt)
+            levels.append(x)
+        return pad_images_around_center(levels)
     x = img.imread('%s' % (dir))
     x = np2torch(x,opt)
     x = x[:,0:3,:,:]

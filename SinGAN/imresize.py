@@ -58,6 +58,12 @@ def torch2uint8(x, opt):
 
 
 def imresize(im,scale,opt):
+    if len(im.shape) == 4 and im.shape[0] > 1:
+        ims = [im[i:i+1, :, :, :] for i in range(im.shape[0])]
+        ims = [imresize(im_inst, scale, opt) for im_inst in ims]
+        im = torch.cat(ims, dim=0)
+        assert len(im.shape) == 4 and im.shape[0] == len(ims)
+        return im
     #s = im.shape
     kernel = None
     from SinGAN.functions import is_vglc

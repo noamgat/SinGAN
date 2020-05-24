@@ -208,7 +208,7 @@ def train_single_scale(netD,netG,reals,Gs,Zs,in_s,NoiseAmp,opt,centers=None):
         z_opt2plot.append(rec_loss)
 
         if epoch % 25 == 0 or epoch == (opt.niter-1):
-            print('scale %d/%d:[%d/%d]' % (len(Gs), opt.stop_scale+1, epoch, opt.niter))
+            print('scale %d/%d:[%d/%d]' % (len(Gs), opt.stop_scale, epoch, opt.niter))
 
         if epoch % 500 == 0 or epoch == (opt.niter-1):
             plt.imsave('%s/fake_sample.png' %  (opt.outf), functions.convert_image_np(fake.detach(), opt), vmin=0, vmax=1)
